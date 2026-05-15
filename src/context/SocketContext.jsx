@@ -9,10 +9,10 @@ export const SocketProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
 
   useEffect(() => {
-    if (!token) return; 
+    if (!token) return;
 
-    const newSocket = io("http://localhost:5000", {
-      auth: { token }, 
+    const newSocket = io("https://chat-app-api-y5fo.onrender.com", {
+      auth: { token },
     });
 
     newSocket.on("connect", () => {
