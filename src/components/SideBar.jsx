@@ -6,13 +6,16 @@ export default function Sidebar({ rooms, activeRoom, onRoomSelect, onCreateRoom,
   const { user, logout } = useAuth();
   const socket = useSocket();
   const [newRoomName, setNewRoomName] = useState("");
+  const [newRoomDesc, setNewRoomDesc] = useState("");
   const [showCreate, setShowCreate] = useState(false);
+
 
   const handleCreateRoom = (e) => {
     e.preventDefault();
     if (!newRoomName.trim()) return;
-    onCreateRoom(newRoomName.trim());
+    onCreateRoom(newRoomName.trim(), newRoomDesc.trim());
     setNewRoomName("");
+    setNewRoomDesc("");  
     setShowCreate(false);
   };
 
@@ -44,22 +47,28 @@ export default function Sidebar({ rooms, activeRoom, onRoomSelect, onCreateRoom,
           </button>
         </div>
 
-        {/* Create Room Input */}
         {showCreate && (
-          <form onSubmit={handleCreateRoom} className="mb-2">
+          <form onSubmit={handleCreateRoom} className="mx-2 mb-2 p-2 bg-[#111827] border border-indigo-900/60 rounded-xl">
             <input
               type="text"
               value={newRoomName}
               onChange={(e) => setNewRoomName(e.target.value)}
-              placeholder="Room name..."
+              placeholder="room-name"
               autoFocus
-              className="w-full bg-gray-800 border border-indigo-500 text-white rounded-lg px-3 py-1.5 text-xs focus:outline-none placeholder-gray-600 mb-1"
+              className="w-full bg-transparent text-gray-200 text-xs placeholder-gray-600 focus:outline-none mb-2"
             />
-            <div className="flex gap-1">
-              <button type="submit" className="flex-1 bg-indigo-600 text-white text-xs rounded py-1 hover:bg-indigo-500 transition-colors">
+            <input
+              type="text"
+              value={newRoomDesc}
+              onChange={(e) => setNewRoomDesc(e.target.value)}
+              placeholder="Description (optional)"
+              className="w-full bg-transparent text-gray-200 text-xs placeholder-gray-600 focus:outline-none border-t border-[#1f2937] pt-2 mb-2"
+            />
+            <div className="flex gap-1.5">
+              <button type="submit" className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white text-xs rounded-lg py-1.5 transition-colors font-medium">
                 Create
               </button>
-              <button type="button" onClick={() => setShowCreate(false)} className="flex-1 bg-gray-700 text-white text-xs rounded py-1 hover:bg-gray-600 transition-colors">
+              <button type="button" onClick={() => setShowCreate(false)} className="flex-1 bg-[#1f2937] hover:bg-[#374151] text-gray-400 text-xs rounded-lg py-1.5 transition-colors">
                 Cancel
               </button>
             </div>
@@ -72,11 +81,10 @@ export default function Sidebar({ rooms, activeRoom, onRoomSelect, onCreateRoom,
             <button
               key={room._id}
               onClick={() => onRoomSelect(room)}
-              className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center gap-2 ${
-                activeRoom?._id === room._id
-                  ? "bg-indigo-600 text-white"
-                  : "text-gray-400 hover:bg-gray-800 hover:text-white"
-              }`}
+              className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center gap-2 ${activeRoom?._id === room._id
+                ? "bg-indigo-600 text-white"
+                : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                }`}
             >
               <span className="text-gray-500">#</span>
               <span className="truncate">{room.name}</span>
