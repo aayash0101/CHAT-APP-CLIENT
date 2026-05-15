@@ -1,10 +1,16 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
 import CreateRoomModal from "./CreateRoomModal.jsx";
+import EditProfileModal from "./EditProfileModal.jsx";
+
+const BACKEND_URL = "https://chat-app-api-y5fo.onrender.com";
 
 export default function Sidebar({ rooms, activeRoom, onRoomSelect, onCreateRoom, onlineUsers }) {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [showCreate, setShowCreate] = useState(false);
+  const [showEditProfile, setShowEditProfile] = useState(false);
 
   return (
     <aside className="w-56 bg-[#0d1117] border-r border-[#1f2937] flex flex-col h-full shrink-0">
@@ -72,11 +78,42 @@ export default function Sidebar({ rooms, activeRoom, onRoomSelect, onCreateRoom,
       </div>
 
       {/* User footer */}
-      <div className="px-3 py-3 border-t border-[#1f2937] flex items-center gap-2.5">
-        <div className="w-7 h-7 bg-indigo-600 rounded-full flex items-center justify-center text-white text-xs font-semibold shrink-0">
-          {user?.username?.[0]?.toUpperCase()}
-        </div>
-        <span className="text-xs text-gray-400 truncate flex-1 font-medium">{user?.username}</span>
+      <div className="px-3 py-3 border-t border-[#1f2937] flex items-center gap-2">
+
+        {/* Avatar + name — click to edit profile */}
+        <button
+          onClick={() => setShowEditProfile(true)}
+          className="flex items-center gap-2 flex-1 min-w-0 hover:opacity-80 transition-opacity"
+          title="Edit profile"
+        >
+          {user?.avatar ? (
+            <img
+              src={`${BACKEND_URL}${user.avatar}`}
+              alt={user.username}
+              className="w-7 h-7 rounded-full object-cover shrink-0"
+            />
+          ) : (
+            <div className="w-7 h-7 bg-indigo-600 rounded-full flex items-center justify-center text-white text-xs font-semibold shrink-0">
+              {user?.username?.[0]?.toUpperCase()}
+            </div>
+          )}
+          <span className="text-xs text-gray-400 truncate font-medium">
+            {user?.displayName || user?.username}
+          </span>
+        </button>
+
+        {/* Profile page link */}
+        <button
+          onClick={() => navigate("/profile")}
+          title="View profile"
+          className="text-gray-600 hover:text-indigo-400 transition-colors shrink-0"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          </svg>
+        </button>
+
+        {/* Logout */}
         <button onClick={logout} title="Sign out" className="text-gray-600 hover:text-red-400 transition-colors shrink-0">
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -84,7 +121,7 @@ export default function Sidebar({ rooms, activeRoom, onRoomSelect, onCreateRoom,
         </button>
       </div>
 
-      {/* Modal */}
+      {/* Modals */}
       {showCreate && (
         <CreateRoomModal
           onClose={() => setShowCreate(false)}
@@ -93,6 +130,9 @@ export default function Sidebar({ rooms, activeRoom, onRoomSelect, onCreateRoom,
             setShowCreate(false);
           }}
         />
+      )}
+      {showEditProfile && (
+        <EditProfileModal onClose={() => setShowEditProfile(false)} />
       )}
     </aside>
   );
