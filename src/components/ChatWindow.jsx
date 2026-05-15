@@ -1,7 +1,9 @@
 import { useEffect, useRef } from "react";
 import { useAuth } from "../context/AuthContext.jsx";
 
-export default function ChatWindow({ messages, typingUsers, activeRoom }) {
+const BACKEND_URL = "https://chat-app-api-y5fo.onrender.com";
+
+export default function ChatWindow({ messages, typingUsers, activeRoom, onUserClick }) {
   const { user } = useAuth();
   const bottomRef = useRef(null);
 
@@ -28,7 +30,6 @@ export default function ChatWindow({ messages, typingUsers, activeRoom }) {
   return (
     <div className="flex-1 overflow-y-auto bg-[#030712] px-5 py-4 space-y-0.5">
 
-      {/* History start label */}
       <div className="flex justify-center mb-5">
         <span className="text-xs text-gray-700 bg-[#0d1117] border border-[#1f2937] px-3 py-1 rounded-full">
           Start of #{activeRoom.name}
@@ -44,30 +45,58 @@ export default function ChatWindow({ messages, typingUsers, activeRoom }) {
 
         return (
           <div key={msg._id} className={`flex ${isOwn ? "justify-end" : "justify-start"} ${isGrouped ? "mt-0.5" : "mt-4"}`}>
-            <div className={`flex flex-col ${isOwn ? "items-end" : "items-start"} max-w-xs lg:max-w-md`}>
+            <div className={`flex gap-2.5 max-w-xs lg:max-w-md ${isOwn ? "flex-row-reverse" : "flex-row"}`}>
 
-              {/* Sender label — only first in group */}
-              {!isOwn && !isGrouped && (
-                <span className="text-[11px] text-indigo-400 font-semibold mb-1 px-1">
-                  {msg.sender.username}
-                </span>
-              )}
-
-              {/* Bubble */}
-              <div className={`px-4 py-2 text-sm leading-relaxed ${
-                isOwn
-                  ? "bg-indigo-600 text-white rounded-2xl rounded-br-md"
-                  : "bg-[#111827] text-gray-200 border border-[#1f2937] rounded-2xl rounded-bl-md"
-              }`}>
-                {msg.content}
+              {/* Avatar — show on last message of group */}
+              <div className="shrink-0 w-7 self-end">
+                {!isOwn && isLastInGroup && (
+                  <button
+                    onClick={() => onUserClick(msg.sender._id)}
+                    className="hover:opacity-80 transition-opacity"
+                    title={`View ${msg.sender.username}'s profile`}
+                  >
+                    {msg.sender.avatar ? (
+                      <img
+                        src={`${BACKEND_URL}${msg.sender.avatar}`}
+                        alt={msg.sender.username}
+                        className="w-7 h-7 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-7 h-7 rounded-full bg-indigo-600 flex items-center justify-center text-white text-xs font-semibold">
+                        {msg.sender.username?.[0]?.toUpperCase()}
+                      </div>
+                    )}
+                  </button>
+                )}
               </div>
 
-              {/* Timestamp — last in group only */}
-              {isLastInGroup && (
-                <span className="text-[10px] text-gray-700 mt-1 px-1">
-                  {formatTime(msg.createdAt)}
-                </span>
-              )}
+              <div className={`flex flex-col ${isOwn ? "items-end" : "items-start"}`}>
+                {/* Sender name — clickable */}
+                {!isOwn && !isGrouped && (
+                  <button
+                    onClick={() => onUserClick(msg.sender._id)}
+                    className="text-[11px] text-indigo-400 font-semibold mb-1 px-1 hover:text-indigo-300 transition-colors"
+                  >
+                    {msg.sender.username}
+                  </button>
+                )}
+
+                {/* Bubble */}
+                <div className={`px-4 py-2 text-sm leading-relaxed ${
+                  isOwn
+                    ? "bg-indigo-600 text-white rounded-2xl rounded-br-md"
+                    : "bg-[#111827] text-gray-200 border border-[#1f2937] rounded-2xl rounded-bl-md"
+                }`}>
+                  {msg.content}
+                </div>
+
+                {/* Timestamp */}
+                {isLastInGroup && (
+                  <span className="text-[10px] text-gray-700 mt-1 px-1">
+                    {formatTime(msg.createdAt)}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         );
@@ -79,11 +108,7 @@ export default function ChatWindow({ messages, typingUsers, activeRoom }) {
           <div className="bg-[#111827] border border-[#1f2937] px-4 py-2.5 rounded-2xl rounded-bl-md flex items-center gap-2.5">
             <div className="flex gap-1">
               {[0, 150, 300].map((delay) => (
-                <span
-                  key={delay}
-                  className="w-1.5 h-1.5 bg-gray-600 rounded-full animate-bounce"
-                  style={{ animationDelay: `${delay}ms` }}
-                />
+                <span key={delay} className="w-1.5 h-1.5 bg-gray-600 rounded-full animate-bounce" style={{ animationDelay: `${delay}ms` }} />
               ))}
             </div>
             <span className="text-xs text-gray-600">
