@@ -144,6 +144,29 @@ export default function ChatPage() {
     }
   };
 
+  const handleLeaveRoom = async () => {
+    try {
+      await api.delete(`/rooms/${activeRoom._id}/leave`);
+
+      // Remove user from the room's member list locally
+      setRooms((prev) =>
+        prev.map((r) =>
+          r._id === activeRoom._id
+            ? { ...r, members: r.members.filter((m) => m !== user._id && m._id !== user._id) }
+            : r
+        )
+      );
+
+      socket?.emit("room:leave", activeRoom._id);
+      setActiveRoom(null);
+      setMessages([]);
+      setTypingUsers([]);
+      setIsMember(false);
+    } catch (err) {
+      console.error("Failed to leave room:", err.response?.data?.message);
+    }
+  };
+
   return (
     <div className="flex h-screen bg-[#030712] overflow-hidden">
       <Sidebar
@@ -155,16 +178,33 @@ export default function ChatPage() {
       />
 
       <div className="flex flex-col flex-1 min-w-0">
+        {/* Room header */}
         {activeRoom && (
-          <div className="px-5 py-3 bg-[#0d1117] border-b border-[#1f2937] flex items-center gap-2 shrink-0">
-            <span className="text-gray-600">#</span>
-            <span className="text-sm font-semibold text-gray-100">{activeRoom.name}</span>
-            {activeRoom.description && (
-              <>
-                <span className="text-[#1f2937] mx-1">|</span>
-                <span className="text-xs text-gray-600">{activeRoom.description}</span>
-              </>
-            )}
+          <div className="px-5 py-3 bg-[#0d1117] border-b border-[#1f2937] flex items-center justify-between shrink-0">
+
+            {/* Left — room name + description */}
+            <div className="flex items-center gap-2">
+              <span className="text-gray-600">#</span>
+              <span className="text-sm font-semibold text-gray-100">{activeRoom.name}</span>
+              {activeRoom.description && (
+                <>
+                  <span className="text-[#1f2937] mx-1">|</span>
+                  <span className="text-xs text-gray-600">{activeRoom.description}</span>
+                </>
+              )}
+            </div>
+
+            {/* Right — leave button */}
+            <button
+              onClick={handleLeaveRoom}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-gray-600 hover:text-red-400 hover:bg-red-950/30 transition-all text-xs font-medium"
+              title="Leave room"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              Leave
+            </button>
           </div>
         )}
 
