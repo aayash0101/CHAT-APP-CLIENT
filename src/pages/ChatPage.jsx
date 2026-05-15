@@ -133,9 +133,9 @@ export default function ChatPage() {
     }
   };
 
-  const handleCreateRoom = async (name) => {
+  const handleCreateRoom = async (name, description) => {
     try {
-      const { data } = await api.post("/rooms", { name });
+      const { data } = await api.post("/rooms", { name, description });  
       setRooms((prev) => [...prev, data]);
       setIsMember(true);
       enterRoom(data);
