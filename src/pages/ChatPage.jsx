@@ -6,6 +6,7 @@ import Sidebar from "../components/Sidebar.jsx";
 import ChatWindow from "../components/ChatWindow.jsx";
 import MessageInput from "../components/MessageInput.jsx";
 import JoinRoom from "../components/JoinRoom.jsx";
+import ProfileModal from "../components/ProfileModal.jsx";
 
 export default function ChatPage() {
   const socket = useSocket();
@@ -16,7 +17,8 @@ export default function ChatPage() {
   const [messages, setMessages] = useState([]);
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [typingUsers, setTypingUsers] = useState([]);
-  const [isMember, setIsMember] = useState(false);  // ← new
+  const [isMember, setIsMember] = useState(false);
+  const [viewingUserId, setViewingUserId] = useState(null);
 
   useEffect(() => {
     const fetchRooms = async () => {
@@ -135,7 +137,7 @@ export default function ChatPage() {
 
   const handleCreateRoom = async (name, description) => {
     try {
-      const { data } = await api.post("/rooms", { name, description });  
+      const { data } = await api.post("/rooms", { name, description });
       setRooms((prev) => [...prev, data]);
       setIsMember(true);
       enterRoom(data);
@@ -217,7 +219,15 @@ export default function ChatPage() {
               messages={messages}
               typingUsers={typingUsers}
               activeRoom={activeRoom}
+              onUserClick={(userId) => setViewingUserId(userId)}
             />
+
+            {viewingUserId && (
+              <ProfileModal
+                userId={viewingUserId}
+                onClose={() => setViewingUserId(null)}
+              />
+            )}
             <MessageInput activeRoom={activeRoom} />
           </>
         )}
