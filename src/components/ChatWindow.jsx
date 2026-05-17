@@ -3,6 +3,12 @@ import { useAuth } from "../context/AuthContext.jsx";
 
 const BACKEND_URL = "https://chat-app-api-y5fo.onrender.com";
 
+const getAvatarUrl = (avatar) => {
+  if (!avatar) return null;
+  if (avatar.startsWith("http")) return avatar;
+  return `${BACKEND_URL}${avatar}`;
+};
+
 export default function ChatWindow({ messages, typingUsers, activeRoom, onUserClick }) {
   const { user } = useAuth();
   const bottomRef = useRef(null);
@@ -29,7 +35,6 @@ export default function ChatWindow({ messages, typingUsers, activeRoom, onUserCl
 
   return (
     <div className="flex-1 overflow-y-auto bg-[#030712] px-5 py-4 space-y-0.5">
-
       <div className="flex justify-center mb-5">
         <span className="text-xs text-gray-700 bg-[#0d1117] border border-[#1f2937] px-3 py-1 rounded-full">
           Start of #{activeRoom.name}
@@ -42,12 +47,11 @@ export default function ChatWindow({ messages, typingUsers, activeRoom, onUserCl
         const nextMsg = messages[index + 1];
         const isGrouped = prevMsg && prevMsg.sender._id === msg.sender._id;
         const isLastInGroup = !nextMsg || nextMsg.sender._id !== msg.sender._id;
+        const avatarUrl = getAvatarUrl(msg.sender.avatar);
 
         return (
           <div key={msg._id} className={`flex ${isOwn ? "justify-end" : "justify-start"} ${isGrouped ? "mt-0.5" : "mt-4"}`}>
             <div className={`flex gap-2.5 max-w-xs lg:max-w-md ${isOwn ? "flex-row-reverse" : "flex-row"}`}>
-
-              {/* Avatar — show on last message of group */}
               <div className="shrink-0 w-7 self-end">
                 {!isOwn && isLastInGroup && (
                   <button
@@ -55,9 +59,9 @@ export default function ChatWindow({ messages, typingUsers, activeRoom, onUserCl
                     className="hover:opacity-80 transition-opacity"
                     title={`View ${msg.sender.username}'s profile`}
                   >
-                    {msg.sender.avatar ? (
+                    {avatarUrl ? (
                       <img
-                        src={`${BACKEND_URL}${msg.sender.avatar}`}
+                        src={avatarUrl}
                         alt={msg.sender.username}
                         className="w-7 h-7 rounded-full object-cover"
                       />
@@ -71,7 +75,6 @@ export default function ChatWindow({ messages, typingUsers, activeRoom, onUserCl
               </div>
 
               <div className={`flex flex-col ${isOwn ? "items-end" : "items-start"}`}>
-                {/* Sender name — clickable */}
                 {!isOwn && !isGrouped && (
                   <button
                     onClick={() => onUserClick(msg.sender._id)}
@@ -80,8 +83,6 @@ export default function ChatWindow({ messages, typingUsers, activeRoom, onUserCl
                     {msg.sender.username}
                   </button>
                 )}
-
-                {/* Bubble */}
                 <div className={`px-4 py-2 text-sm leading-relaxed ${
                   isOwn
                     ? "bg-indigo-600 text-white rounded-2xl rounded-br-md"
@@ -89,8 +90,6 @@ export default function ChatWindow({ messages, typingUsers, activeRoom, onUserCl
                 }`}>
                   {msg.content}
                 </div>
-
-                {/* Timestamp */}
                 {isLastInGroup && (
                   <span className="text-[10px] text-gray-700 mt-1 px-1">
                     {formatTime(msg.createdAt)}
@@ -102,7 +101,6 @@ export default function ChatWindow({ messages, typingUsers, activeRoom, onUserCl
         );
       })}
 
-      {/* Typing indicator */}
       {typingUsers.length > 0 && (
         <div className="flex justify-start mt-4">
           <div className="bg-[#111827] border border-[#1f2937] px-4 py-2.5 rounded-2xl rounded-bl-md flex items-center gap-2.5">
@@ -117,7 +115,6 @@ export default function ChatWindow({ messages, typingUsers, activeRoom, onUserCl
           </div>
         </div>
       )}
-
       <div ref={bottomRef} />
     </div>
   );
