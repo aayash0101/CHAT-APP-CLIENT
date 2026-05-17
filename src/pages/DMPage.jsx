@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useSocket } from "../context/SocketContext.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
@@ -30,27 +30,45 @@ export default function DMPage() {
     const [showNewDM, setShowNewDM] = useState(false);
     const [viewingUserId, setViewingUserId] = useState(null);
 
-    // Fetch all existing DMs on mount
+    const handleSelectUser = useCallback(async (targetUserId) => {
+        try {
+            const { data: dm } = await api.post("/dms", { targetUserId });
+            setDMs((prev) => {
+                const exists = prev.find((d) => d._id === dm._id);
+                return exists ? prev : [dm, ...prev];
+            });
+            // Select the DM directly here instead of calling handleDMSelect
+            // to avoid circular dependency
+            setActiveDM(dm);
+            setMessages([]);
+            setTypingUsers([]);
+            socket?.emit("room:join", dm._id);
+            const { data: msgs } = await api.get(`/dms/${dm._id}/messages`);
+            setMessages(msgs);
+        } catch (err) {
+            console.error("Failed to open DM:", err.response?.data?.message);
+        }
+    }, [socket]);
+
+    // Fetch all existing DMs on mount, then handle ?user= param
     useEffect(() => {
-        const fetchDMs = async () => {
+        const init = async () => {
             try {
                 const { data } = await api.get("/dms");
                 setDMs(data);
+
+                // Handle ?user= AFTER dms are loaded
+                const targetUserId = searchParams.get("user");
+                if (targetUserId) {
+                    await handleSelectUser(targetUserId);
+                    setSearchParams({});
+                }
             } catch (err) {
                 console.error("Failed to fetch DMs:", err);
             }
         };
-        fetchDMs();
-    }, []);
-
-    // If ?user=id is in the URL, auto-open that DM
-    useEffect(() => {
-        const targetUserId = searchParams.get("user");
-        if (targetUserId) {
-            handleSelectUser(targetUserId);
-            setSearchParams({}); // clear the query param after opening
-        }
-    }, [searchParams]);
+        init();
+    }, []); // ← runs once on mount only
 
     // Socket event listeners
     useEffect(() => {
@@ -63,8 +81,6 @@ export default function DMPage() {
                 }
                 return prev;
             });
-
-            // Move the active DM to top of list when new message arrives
             setDMs((prev) => {
                 const updated = prev.find((d) => d._id === message.roomId);
                 if (!updated) return prev;
@@ -85,15 +101,12 @@ export default function DMPage() {
         };
     }, [socket, activeDM]);
 
-    // Open a DM by selecting it from the list
     const handleDMSelect = useCallback(async (dm) => {
         if (activeDM) socket?.emit("room:leave", activeDM._id);
-
         setActiveDM(dm);
         setMessages([]);
         setTypingUsers([]);
         socket?.emit("room:join", dm._id);
-
         try {
             const { data } = await api.get(`/dms/${dm._id}/messages`);
             setMessages(data);
@@ -102,26 +115,10 @@ export default function DMPage() {
         }
     }, [socket, activeDM]);
 
-    // Start or open a DM with a specific user ID
-    const handleSelectUser = async (targetUserId) => {
-        try {
-            const { data: dm } = await api.post("/dms", { targetUserId });
-
-            // Add to DM list if not already there
-            setDMs((prev) => {
-                const exists = prev.find((d) => d._id === dm._id);
-                return exists ? prev : [dm, ...prev];
-            });
-
-            handleDMSelect(dm);
-        } catch (err) {
-            console.error("Failed to open DM:", err.response?.data?.message);
-        }
-    };
-
-    // Get the other participant's info for the header
     const getOtherUser = (dm) => {
-        return dm?.participants?.find((p) => p._id.toString() !== user._id.toString());
+        return dm?.participants?.find(
+            (p) => String(p._id) !== String(user._id)
+        );
     };
 
     const otherUser = activeDM ? getOtherUser(activeDM) : null;
@@ -136,8 +133,6 @@ export default function DMPage() {
             />
 
             <div className="flex flex-col flex-1 min-w-0">
-
-                {/* Header */}
                 {otherUser ? (
                     <div className="px-5 py-3 bg-[#0d1117] border-b border-[#1f2937] flex items-center justify-between shrink-0">
                         <button
@@ -165,8 +160,6 @@ export default function DMPage() {
                                 </p>
                             </div>
                         </button>
-
-                        {/* Back to chat */}
                         <button
                             onClick={() => navigate("/chat")}
                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-gray-600 hover:text-gray-400 hover:bg-[#111827] transition-all text-xs font-medium"
@@ -192,7 +185,6 @@ export default function DMPage() {
                     </div>
                 )}
 
-                {/* Chat area — reuse ChatWindow and MessageInput */}
                 <ChatWindow
                     messages={messages}
                     typingUsers={typingUsers}
@@ -202,7 +194,6 @@ export default function DMPage() {
                 <MessageInput activeRoom={activeDM} />
             </div>
 
-            {/* Modals */}
             {showNewDM && (
                 <NewDMModal
                     onClose={() => setShowNewDM(false)}
