@@ -8,14 +8,16 @@ const getAvatarUrl = (avatar) => {
     return `${BACKEND_URL}${avatar}`;
 };
 
+
 export default function DMSidebar({ dms, activeDM, onDMSelect, onNewDM }) {
     const { user } = useAuth();
 
     // Get the other participant in a DM (not the current user)
     const getOtherUser = (dm) => {
+        console.log("participants:", dm.participants);
+        console.log("user._id:", user._id);
         return dm.participants.find((p) => p._id.toString() !== user._id.toString());
     };
-
     return (
         <aside className="w-56 bg-[#0d1117] border-r border-[#1f2937] flex flex-col h-full shrink-0">
 
@@ -57,8 +59,8 @@ export default function DMSidebar({ dms, activeDM, onDMSelect, onNewDM }) {
                                     key={dm._id}
                                     onClick={() => onDMSelect(dm)}
                                     className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center gap-2.5 transition-all ${activeDM?._id === dm._id
-                                            ? "bg-indigo-950 text-indigo-200"
-                                            : "text-gray-500 hover:bg-[#111827] hover:text-gray-300"
+                                        ? "bg-indigo-950 text-indigo-200"
+                                        : "text-gray-500 hover:bg-[#111827] hover:text-gray-300"
                                         }`}
                                 >
                                     {/* Avatar with online dot */}
