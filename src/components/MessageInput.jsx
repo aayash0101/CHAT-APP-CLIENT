@@ -41,8 +41,11 @@ export default function MessageInput({ activeRoom }) {
         <input
           type="text" value={message}
           onChange={(e) => handleTyping(e.target.value)}
-          placeholder={`Message #${activeRoom.name}`}
-          className="flex-1 bg-transparent text-gray-200 text-sm placeholder-gray-700 focus:outline-none"
+          placeholder={
+            activeRoom.isDM
+              ? `Send a message...`
+              : `Message #${activeRoom.name}`
+          } className="flex-1 bg-transparent text-gray-200 text-sm placeholder-gray-700 focus:outline-none"
         />
         <button
           type="submit" disabled={!message.trim()}

@@ -37,7 +37,9 @@ export default function ChatWindow({ messages, typingUsers, activeRoom, onUserCl
     <div className="flex-1 overflow-y-auto bg-[#030712] px-5 py-4 space-y-0.5">
       <div className="flex justify-center mb-5">
         <span className="text-xs text-gray-700 bg-[#0d1117] border border-[#1f2937] px-3 py-1 rounded-full">
-          Start of #{activeRoom.name}
+          {activeRoom.isDM
+            ? `Start of your conversation`
+            : `Start of #${activeRoom.name}`}
         </span>
       </div>
 
@@ -83,11 +85,10 @@ export default function ChatWindow({ messages, typingUsers, activeRoom, onUserCl
                     {msg.sender.username}
                   </button>
                 )}
-                <div className={`px-4 py-2 text-sm leading-relaxed ${
-                  isOwn
+                <div className={`px-4 py-2 text-sm leading-relaxed ${isOwn
                     ? "bg-indigo-600 text-white rounded-2xl rounded-br-md"
                     : "bg-[#111827] text-gray-200 border border-[#1f2937] rounded-2xl rounded-bl-md"
-                }`}>
+                  }`}>
                   {msg.content}
                 </div>
                 {isLastInGroup && (
