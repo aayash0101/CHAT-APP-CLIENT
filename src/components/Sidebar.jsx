@@ -6,6 +6,12 @@ import EditProfileModal from "./EditProfileModal.jsx";
 
 const BACKEND_URL = "https://chat-app-api-y5fo.onrender.com";
 
+const getAvatarUrl = (avatar) => {
+  if (!avatar) return null;
+  if (avatar.startsWith("http")) return avatar;
+  return `${BACKEND_URL}${avatar}`;
+};
+
 export default function Sidebar({ rooms, activeRoom, onRoomSelect, onCreateRoom, onlineUsers }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -86,9 +92,9 @@ export default function Sidebar({ rooms, activeRoom, onRoomSelect, onCreateRoom,
           className="flex items-center gap-2 flex-1 min-w-0 hover:opacity-80 transition-opacity"
           title="Edit profile"
         >
-          {user?.avatar ? (
+          {getAvatarUrl(user?.avatar) ? (
             <img
-              src={`${BACKEND_URL}${user.avatar}`}
+              src={getAvatarUrl(user.avatar)}
               alt={user.username}
               className="w-7 h-7 rounded-full object-cover shrink-0"
             />
