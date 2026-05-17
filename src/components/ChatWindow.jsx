@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useAuth } from "../context/AuthContext.jsx";
+import MessageBubble from "./MessageBubble.jsx";
 
 const BACKEND_URL = "https://chat-app-api-y5fo.onrender.com";
 
@@ -38,7 +39,7 @@ export default function ChatWindow({ messages, typingUsers, activeRoom, onUserCl
       <div className="flex justify-center mb-5">
         <span className="text-xs text-gray-700 bg-[#0d1117] border border-[#1f2937] px-3 py-1 rounded-full">
           {activeRoom.isDM
-            ? `Start of your conversation`
+            ? "Start of your conversation"
             : `Start of #${activeRoom.name}`}
         </span>
       </div>
@@ -52,8 +53,13 @@ export default function ChatWindow({ messages, typingUsers, activeRoom, onUserCl
         const avatarUrl = getAvatarUrl(msg.sender.avatar);
 
         return (
-          <div key={msg._id} className={`flex ${isOwn ? "justify-end" : "justify-start"} ${isGrouped ? "mt-0.5" : "mt-4"}`}>
+          <div
+            key={msg._id}
+            className={`flex ${isOwn ? "justify-end" : "justify-start"} ${isGrouped ? "mt-0.5" : "mt-4"}`}
+          >
             <div className={`flex gap-2.5 max-w-xs lg:max-w-md ${isOwn ? "flex-row-reverse" : "flex-row"}`}>
+
+              {/* Avatar */}
               <div className="shrink-0 w-7 self-end">
                 {!isOwn && isLastInGroup && (
                   <button
@@ -77,6 +83,8 @@ export default function ChatWindow({ messages, typingUsers, activeRoom, onUserCl
               </div>
 
               <div className={`flex flex-col ${isOwn ? "items-end" : "items-start"}`}>
+
+                {/* Sender name */}
                 {!isOwn && !isGrouped && (
                   <button
                     onClick={() => onUserClick(msg.sender._id)}
@@ -85,12 +93,11 @@ export default function ChatWindow({ messages, typingUsers, activeRoom, onUserCl
                     {msg.sender.username}
                   </button>
                 )}
-                <div className={`px-4 py-2 text-sm leading-relaxed ${isOwn
-                    ? "bg-indigo-600 text-white rounded-2xl rounded-br-md"
-                    : "bg-[#111827] text-gray-200 border border-[#1f2937] rounded-2xl rounded-bl-md"
-                  }`}>
-                  {msg.content}
-                </div>
+
+                {/* Message bubble — handles text, images and files */}
+                <MessageBubble msg={msg} isOwn={isOwn} />
+
+                {/* Timestamp */}
                 {isLastInGroup && (
                   <span className="text-[10px] text-gray-700 mt-1 px-1">
                     {formatTime(msg.createdAt)}
@@ -102,12 +109,17 @@ export default function ChatWindow({ messages, typingUsers, activeRoom, onUserCl
         );
       })}
 
+      {/* Typing indicator */}
       {typingUsers.length > 0 && (
         <div className="flex justify-start mt-4">
           <div className="bg-[#111827] border border-[#1f2937] px-4 py-2.5 rounded-2xl rounded-bl-md flex items-center gap-2.5">
             <div className="flex gap-1">
               {[0, 150, 300].map((delay) => (
-                <span key={delay} className="w-1.5 h-1.5 bg-gray-600 rounded-full animate-bounce" style={{ animationDelay: `${delay}ms` }} />
+                <span
+                  key={delay}
+                  className="w-1.5 h-1.5 bg-gray-600 rounded-full animate-bounce"
+                  style={{ animationDelay: `${delay}ms` }}
+                />
               ))}
             </div>
             <span className="text-xs text-gray-600">
@@ -116,6 +128,7 @@ export default function ChatWindow({ messages, typingUsers, activeRoom, onUserCl
           </div>
         </div>
       )}
+
       <div ref={bottomRef} />
     </div>
   );
