@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
 import CreateRoomModal from "./CreateRoomModal.jsx";
 import EditProfileModal from "./EditProfileModal.jsx";
+import SearchBar from "./SearchBar.jsx";
 
 const BACKEND_URL = "https://chat-app-api-y5fo.onrender.com";
 
@@ -31,6 +32,9 @@ export default function Sidebar({ rooms, activeRoom, onRoomSelect, onCreateRoom,
         </div>
         <span className="text-sm font-semibold text-gray-100 tracking-tight">ChatApp</span>
       </div>
+
+      {/* Search */}
+      <SearchBar onRoomSelect={onRoomSelect} rooms={rooms} />
 
       <div className="flex-1 overflow-y-auto py-3">
 
