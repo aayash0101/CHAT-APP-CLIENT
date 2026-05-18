@@ -63,12 +63,27 @@ export default function ChatPage() {
         return prev.filter((u) => u !== username);
       });
     });
-
+    // Update readBy when someone reads messages in real time
+    socket.on("messages:read", ({ roomId, userId }) => {
+      setMessages((prev) =>
+        prev.map((msg) => {
+          if (
+            msg.room === roomId &&
+            !msg.readBy?.includes(userId)
+          ) {
+            return { ...msg, readBy: [...(msg.readBy || []), userId] };
+          }
+          return msg;
+        })
+      );
+    });
+    
     return () => {
       socket.off("message:receive");
       socket.off("user:online");
       socket.off("user:offline");
       socket.off("typing:update");
+      socket.off("messages:read");
     };
   }, [socket, activeRoom, user._id]);
 
