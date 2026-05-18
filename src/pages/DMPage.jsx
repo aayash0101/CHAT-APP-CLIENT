@@ -8,6 +8,7 @@ import ChatWindow from "../components/ChatWindow.jsx";
 import MessageInput from "../components/MessageInput.jsx";
 import NewDMModal from "../components/NewDMModal.jsx";
 import ProfileModal from "../components/ProfileModal.jsx";
+import { useNotifications } from "../hooks/useNotifications.js";
 
 const BACKEND_URL = "https://chat-app-api-y5fo.onrender.com";
 
@@ -22,6 +23,7 @@ export default function DMPage() {
     const { user } = useAuth();
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
+    const { notify } = useNotifications();
 
     const [dms, setDMs] = useState([]);
     const [activeDM, setActiveDM] = useState(null);
@@ -81,13 +83,26 @@ export default function DMPage() {
                 }
                 return prev;
             });
+
             setDMs((prev) => {
                 const updated = prev.find((d) => d._id === message.roomId);
                 if (!updated) return prev;
                 return [updated, ...prev.filter((d) => d._id !== message.roomId)];
             });
-        });
 
+            // Fire notification if not your own message
+            if (message.sender._id !== user._id) {
+                notify({
+                    title: `New message from ${message.sender.username}`,
+                    body: message.content || "Sent an attachment",
+                    onClick: () => {
+                        // Find the DM and open it
+                        const dm = dms.find((d) => d._id === message.roomId);
+                        if (dm) handleDMSelect(dm);
+                    },
+                });
+            }
+        });
         socket.on("typing:update", ({ username, isTyping }) => {
             setTypingUsers((prev) => {
                 if (isTyping) return prev.includes(username) ? prev : [...prev, username];
