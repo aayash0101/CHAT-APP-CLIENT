@@ -95,11 +95,28 @@ export default function DMPage() {
             });
         });
 
+        socket.on("messages:read", ({ roomId, userId }) => {
+            setMessages((prev) =>
+                prev.map((msg) => {
+                    if (
+                        msg.room === roomId &&
+                        !msg.readBy?.includes(userId)
+                    ) {
+                        return { ...msg, readBy: [...(msg.readBy || []), userId] };
+                    }
+                    return msg;
+                })
+            );
+        });
+
         return () => {
             socket.off("message:receive");
             socket.off("typing:update");
+            socket.off("messages:read");
         };
     }, [socket, activeDM]);
+
+
 
     const handleDMSelect = useCallback(async (dm) => {
         if (activeDM) socket?.emit("room:leave", activeDM._id);
