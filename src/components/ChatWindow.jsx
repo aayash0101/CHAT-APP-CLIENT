@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useAuth } from "../context/AuthContext.jsx";
+import { useSocket } from "../context/SocketContext.jsx";
 import MessageBubble from "./MessageBubble.jsx";
 
 const BACKEND_URL = "https://chat-app-api-y5fo.onrender.com";
@@ -12,11 +13,18 @@ const getAvatarUrl = (avatar) => {
 
 export default function ChatWindow({ messages, typingUsers, activeRoom, onUserClick }) {
   const { user } = useAuth();
+  const socket = useSocket();
   const bottomRef = useRef(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, typingUsers]);
+
+  // Mark messages as read when room is opened or messages change
+  useEffect(() => {
+    if (!activeRoom || !socket) return;
+    socket.emit("messages:read", { roomId: activeRoom._id });
+  }, [activeRoom, socket]);
 
   const formatTime = (dateStr) =>
     new Date(dateStr).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -94,8 +102,12 @@ export default function ChatWindow({ messages, typingUsers, activeRoom, onUserCl
                   </button>
                 )}
 
-                {/* Message bubble — handles text, images and files */}
-                <MessageBubble msg={msg} isOwn={isOwn} />
+                {/* Message bubble */}
+                <MessageBubble
+                  msg={msg}
+                  isOwn={isOwn}
+                  currentUserId={user._id}
+                />
 
                 {/* Timestamp */}
                 {isLastInGroup && (
