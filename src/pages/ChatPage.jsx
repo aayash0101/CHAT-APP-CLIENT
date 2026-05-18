@@ -7,6 +7,7 @@ import ChatWindow from "../components/ChatWindow.jsx";
 import MessageInput from "../components/MessageInput.jsx";
 import JoinRoom from "../components/JoinRoom.jsx";
 import ProfileModal from "../components/ProfileModal.jsx";
+import { useNotifications } from "../hooks/useNotifications.js";
 
 export default function ChatPage() {
   const socket = useSocket();
@@ -19,6 +20,7 @@ export default function ChatPage() {
   const [typingUsers, setTypingUsers] = useState([]);
   const [isMember, setIsMember] = useState(false);
   const [viewingUserId, setViewingUserId] = useState(null);
+  const { notify } = useNotifications();
 
   useEffect(() => {
     const fetchRooms = async () => {
@@ -36,12 +38,26 @@ export default function ChatPage() {
     if (!socket) return;
 
     socket.on("message:receive", (message) => {
+      // Update messages if in active room
       setMessages((prev) => {
         if (message.roomId === activeRoom?._id) {
           return [...prev, message];
         }
         return prev;
       });
+
+      // Fire notification if not your own message
+      if (message.sender._id !== user._id) {
+        // Find which room this is from
+        const room = rooms.find((r) => r._id === message.roomId);
+        notify({
+          title: `${message.sender.username} in #${room?.name || "a room"}`,
+          body: message.content || "Sent an attachment",
+          onClick: () => {
+            if (room) handleRoomSelect(room);
+          },
+        });
+      }
     });
 
     socket.on("user:online", (data) => {
@@ -77,7 +93,7 @@ export default function ChatPage() {
         })
       );
     });
-    
+
     return () => {
       socket.off("message:receive");
       socket.off("user:online");
