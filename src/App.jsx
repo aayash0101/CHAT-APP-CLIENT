@@ -8,6 +8,7 @@ import RegisterPage from "./pages/RegisterPage.jsx";
 import ChatPage from "./pages/ChatPage.jsx";
 import ProfilePage from "./pages/ProfilePage.jsx";
 import DMPage from "./pages/DMPage.jsx";
+import CallManager from "./components/CallManager.jsx";
 
 export default function App() {
   return (
@@ -15,6 +16,7 @@ export default function App() {
       <AuthProvider>
         <SocketProvider>
           <CallProvider>
+            <CallManager />
             <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />

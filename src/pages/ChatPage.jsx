@@ -8,6 +8,7 @@ import MessageInput from "../components/MessageInput.jsx";
 import JoinRoom from "../components/JoinRoom.jsx";
 import ProfileModal from "../components/ProfileModal.jsx";
 import { useNotifications } from "../hooks/useNotifications.js";
+import { useCall } from "../context/CallContext.jsx";
 
 export default function ChatPage() {
   const socket = useSocket();
@@ -21,6 +22,7 @@ export default function ChatPage() {
   const [isMember, setIsMember] = useState(false);
   const [viewingUserId, setViewingUserId] = useState(null);
   const { notify } = useNotifications();
+  const { initiateCall } = useCall();
 
   useEffect(() => {
     const fetchRooms = async () => {
@@ -226,7 +228,19 @@ export default function ChatPage() {
                 </>
               )}
             </div>
-
+            <button
+              onClick={() => initiateCall({
+                roomId: activeRoom._id,
+                isGroup: true,
+              })}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-gray-600 hover:text-emerald-400 hover:bg-emerald-950/30 transition-all text-xs font-medium"
+              title="Start group call"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.069A1 1 0 0121 8.867v6.266a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" />
+              </svg>
+              Call
+            </button>
             {/* Right — leave button */}
             <button
               onClick={handleLeaveRoom}
