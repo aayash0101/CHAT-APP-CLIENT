@@ -7,7 +7,7 @@ import ChatWindow from "../components/ChatWindow.jsx";
 import MessageInput from "../components/MessageInput.jsx";
 import JoinRoom from "../components/JoinRoom.jsx";
 import ProfileModal from "../components/ProfileModal.jsx";
-import { useNotifications } from "../hooks/useNotifications.js";
+import { useNotifications } from "../hooks/useNotification.js";
 import { useCall } from "../context/CallContext.jsx";
 
 export default function ChatPage() {
