@@ -21,14 +21,12 @@ export default function CallModal({ targetId, isInitiator }) {
     onCallEnded: endCall,
   });
 
-  // Attach local stream to video element
   useEffect(() => {
     if (localVideoRef.current && localStream) {
       localVideoRef.current.srcObject = localStream;
     }
   }, [localStream]);
 
-  // Attach remote stream to video element
   useEffect(() => {
     if (remoteVideoRef.current && remoteStream) {
       remoteVideoRef.current.srcObject = remoteStream;
@@ -43,7 +41,7 @@ export default function CallModal({ targetId, isInitiator }) {
   return (
     <div className="fixed inset-0 bg-[#030712] flex flex-col z-50">
 
-      {/* Remote video — full screen */}
+      {/* Remote video */}
       <div className="flex-1 relative bg-gray-950 flex items-center justify-center">
         {remoteStream ? (
           <video
@@ -63,15 +61,15 @@ export default function CallModal({ targetId, isInitiator }) {
           </div>
         )}
 
-        {/* Local video — picture in picture */}
+        {/* Local video PiP */}
         <div className="absolute bottom-4 right-4 w-32 h-24 rounded-xl overflow-hidden border-2 border-[#1f2937] bg-gray-900 shadow-xl">
           {!isVideoOff ? (
             <video
               ref={localVideoRef}
               autoPlay
               playsInline
-              muted // always mute local video to prevent echo
-              className="w-full h-full object-cover scale-x-[-1]" // mirror effect
+              muted
+              className="w-full h-full object-cover scale-x-[-1]"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-gray-900">
@@ -83,7 +81,7 @@ export default function CallModal({ targetId, isInitiator }) {
         </div>
       </div>
 
-      {/* Call controls */}
+      {/* Controls */}
       <div className="h-24 bg-[#0d1117] border-t border-[#1f2937] flex items-center justify-center gap-5">
 
         {/* Mute */}
