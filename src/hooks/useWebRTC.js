@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import Peer from "peerjs";
+import { Peer } from "peerjs";
 import { useSocket } from "../context/SocketContext.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 
