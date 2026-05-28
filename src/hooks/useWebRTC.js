@@ -28,11 +28,12 @@ export const useWebRTC = ({ isInitiator, targetId, onCallEnded }) => {
     }, []);
 
     useEffect(() => {
-        if (!socket || !targetId) return;
+        if (!socket || !targetId) return; // don't start if no targetId
 
         const startCall = async () => {
             try {
-                // Get camera and microphone
+                console.log("🎥 Starting WebRTC, isInitiator:", isInitiator, "targetId:", targetId);
+
                 const stream = await navigator.mediaDevices.getUserMedia({
                     video: true,
                     audio: true,
@@ -40,14 +41,12 @@ export const useWebRTC = ({ isInitiator, targetId, onCallEnded }) => {
                 localStreamRef.current = stream;
                 setLocalStream(stream);
 
-                // Create peer — initiator sends the offer
                 const peer = new SimplePeer({
                     initiator: isInitiator,
                     trickle: false,
                     stream,
                 });
 
-                // When peer generates signaling data, send it to the other user
                 peer.on("signal", (signal) => {
                     console.log("📤 Sending signal to:", targetId, signal.type);
                     socket.emit("call:signal", { targetId, signal });
@@ -59,16 +58,17 @@ export const useWebRTC = ({ isInitiator, targetId, onCallEnded }) => {
                 });
 
                 peer.on("connect", () => {
-                    console.log("✅ Peer connected!");
+                    console.log(" Peer connected!");
                 });
 
                 peer.on("error", (err) => {
-                    console.error("❌ Peer error:", err);
+                    console.error("Peer error:", err);
                     cleanup();
                     if (onCallEnded) onCallEnded();
                 });
 
                 peer.on("close", () => {
+                    console.log("🔌 Peer closed");
                     cleanup();
                     if (onCallEnded) onCallEnded();
                 });
@@ -82,10 +82,9 @@ export const useWebRTC = ({ isInitiator, targetId, onCallEnded }) => {
 
         startCall();
 
-        // Receive signaling data from the other peer
         const handleSignal = ({ signal, senderId }) => {
-            console.log("📥 Received signal from:", senderId, signal.type);
-            if (peerRef.current && senderId === targetId) {
+            console.log(" Received signal from:", senderId, "expected:", targetId);
+            if (peerRef.current) {
                 peerRef.current.signal(signal);
             }
         };
@@ -96,7 +95,7 @@ export const useWebRTC = ({ isInitiator, targetId, onCallEnded }) => {
             socket.off("call:signal-received", handleSignal);
             cleanup();
         };
-    }, [socket, targetId, isInitiator]);
+    }, [socket, targetId, isInitiator]); // ← targetId in deps so it reruns when set
 
     // Toggle microphone
     const toggleMute = useCallback(() => {
