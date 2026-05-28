@@ -1,129 +1,152 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import SimplePeer from "simple-peer/simplepeer.min.js";
+import Peer from "peerjs";
 import { useSocket } from "../context/SocketContext.jsx";
+import { useAuth } from "../context/AuthContext.jsx";
 
 export const useWebRTC = ({ isInitiator, targetId, onCallEnded }) => {
-    const socket = useSocket();
-    const peerRef = useRef(null);
-    const localStreamRef = useRef(null);
+  const socket = useSocket();
+  const { user } = useAuth();
+  const peerRef = useRef(null);
+  const localStreamRef = useRef(null);
+  const callRef = useRef(null);
 
-    const [localStream, setLocalStream] = useState(null);
-    const [remoteStream, setRemoteStream] = useState(null);
-    const [isMuted, setIsMuted] = useState(false);
-    const [isVideoOff, setIsVideoOff] = useState(false);
+  const [localStream, setLocalStream] = useState(null);
+  const [remoteStream, setRemoteStream] = useState(null);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isVideoOff, setIsVideoOff] = useState(false);
+  const [peerId, setPeerId] = useState(null);
 
-    const cleanup = useCallback(() => {
-        // Stop all media tracks
-        if (localStreamRef.current) {
-            localStreamRef.current.getTracks().forEach((track) => track.stop());
-            localStreamRef.current = null;
-        }
-        // Destroy peer connection
-        if (peerRef.current) {
-            peerRef.current.destroy();
-            peerRef.current = null;
-        }
-        setLocalStream(null);
-        setRemoteStream(null);
-    }, []);
+  const cleanup = useCallback(() => {
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((t) => t.stop());
+      localStreamRef.current = null;
+    }
+    if (callRef.current) {
+      callRef.current.close();
+      callRef.current = null;
+    }
+    if (peerRef.current) {
+      peerRef.current.destroy();
+      peerRef.current = null;
+    }
+    setLocalStream(null);
+    setRemoteStream(null);
+  }, []);
 
-    useEffect(() => {
-        if (!socket || !targetId) return; // don't start if no targetId
+  useEffect(() => {
+    if (!socket || !targetId) return;
 
-        const startCall = async () => {
-            try {
-                console.log("🎥 Starting WebRTC, isInitiator:", isInitiator, "targetId:", targetId);
+    const init = async () => {
+      try {
+        // Get camera + mic
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true,
+        });
+        localStreamRef.current = stream;
+        setLocalStream(stream);
 
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: true,
-                    audio: true,
-                });
-                localStreamRef.current = stream;
-                setLocalStream(stream);
+        // Create PeerJS instance — use user ID as peer ID so we can find each other
+        const peer = new Peer(String(user._id), {
+          host: "0.peerjs.com",
+          port: 443,
+          secure: true,
+        });
 
-                const peer = new SimplePeer({
-                    initiator: isInitiator,
-                    trickle: false,
-                    stream,
-                });
+        peerRef.current = peer;
 
-                peer.on("signal", (signal) => {
-                    console.log("📤 Sending signal to:", targetId, signal.type);
-                    socket.emit("call:signal", { targetId, signal });
-                });
+        peer.on("open", (id) => {
+          console.log("✅ PeerJS connected, my ID:", id);
+          setPeerId(id);
 
-                peer.on("stream", (remoteStream) => {
-                    console.log("📹 Got remote stream!");
-                    setRemoteStream(remoteStream);
-                });
+          if (isInitiator) {
+            // Caller — initiate the call to the target
+            console.log("📞 Calling peer:", targetId);
+            const call = peer.call(String(targetId), stream);
+            callRef.current = call;
 
-                peer.on("connect", () => {
-                    console.log(" Peer connected!");
-                });
+            call.on("stream", (remote) => {
+              console.log("📹 Got remote stream");
+              setRemoteStream(remote);
+            });
 
-                peer.on("error", (err) => {
-                    console.error("Peer error:", err);
-                    cleanup();
-                    if (onCallEnded) onCallEnded();
-                });
+            call.on("close", () => {
+              cleanup();
+              if (onCallEnded) onCallEnded();
+            });
 
-                peer.on("close", () => {
-                    console.log("🔌 Peer closed");
-                    cleanup();
-                    if (onCallEnded) onCallEnded();
-                });
+            call.on("error", (err) => {
+              console.error("Call error:", err);
+              cleanup();
+              if (onCallEnded) onCallEnded();
+            });
+          } else {
+            // Callee — wait for the caller to call us
+            peer.on("call", (call) => {
+              console.log("📲 Receiving call from:", call.peer);
+              callRef.current = call;
+              call.answer(stream); // answer with our stream
 
-                peerRef.current = peer;
-            } catch (err) {
-                console.error("Failed to get media:", err);
+              call.on("stream", (remote) => {
+                console.log("📹 Got remote stream");
+                setRemoteStream(remote);
+              });
+
+              call.on("close", () => {
+                cleanup();
                 if (onCallEnded) onCallEnded();
-            }
-        };
-
-        startCall();
-
-        const handleSignal = ({ signal, senderId }) => {
-            console.log(" Received signal from:", senderId, "expected:", targetId);
-            if (peerRef.current) {
-                peerRef.current.signal(signal);
-            }
-        };
-
-        socket.on("call:signal-received", handleSignal);
-
-        return () => {
-            socket.off("call:signal-received", handleSignal);
-            cleanup();
-        };
-    }, [socket, targetId, isInitiator]); // ← targetId in deps so it reruns when set
-
-    // Toggle microphone
-    const toggleMute = useCallback(() => {
-        if (localStreamRef.current) {
-            localStreamRef.current.getAudioTracks().forEach((track) => {
-                track.enabled = !track.enabled;
+              });
             });
-            setIsMuted((prev) => !prev);
-        }
-    }, []);
+          }
+        });
 
-    // Toggle camera
-    const toggleVideo = useCallback(() => {
-        if (localStreamRef.current) {
-            localStreamRef.current.getVideoTracks().forEach((track) => {
-                track.enabled = !track.enabled;
-            });
-            setIsVideoOff((prev) => !prev);
-        }
-    }, []);
+        peer.on("error", (err) => {
+          console.error("PeerJS error:", err);
+          // If peer ID already taken (user has another tab open), use a random ID
+          if (err.type === "unavailable-id") {
+            console.log("ID taken, retrying with random ID...");
+          }
+          cleanup();
+          if (onCallEnded) onCallEnded();
+        });
 
-    return {
-        localStream,
-        remoteStream,
-        isMuted,
-        isVideoOff,
-        toggleMute,
-        toggleVideo,
-        cleanup,
+      } catch (err) {
+        console.error("Failed to get media:", err);
+        if (onCallEnded) onCallEnded();
+      }
     };
+
+    init();
+
+    return () => cleanup();
+  }, [socket, targetId, isInitiator, user._id]);
+
+  const toggleMute = useCallback(() => {
+    if (localStreamRef.current) {
+      localStreamRef.current.getAudioTracks().forEach((t) => {
+        t.enabled = !t.enabled;
+      });
+      setIsMuted((prev) => !prev);
+    }
+  }, []);
+
+  const toggleVideo = useCallback(() => {
+    if (localStreamRef.current) {
+      localStreamRef.current.getVideoTracks().forEach((t) => {
+        t.enabled = !t.enabled;
+      });
+      setIsVideoOff((prev) => !prev);
+    }
+  }, []);
+
+  return {
+    localStream,
+    remoteStream,
+    isMuted,
+    isVideoOff,
+    toggleMute,
+    toggleVideo,
+    cleanup,
+    peerId,
+  };
 };
