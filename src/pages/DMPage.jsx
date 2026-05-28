@@ -8,7 +8,7 @@ import ChatWindow from "../components/ChatWindow.jsx";
 import MessageInput from "../components/MessageInput.jsx";
 import NewDMModal from "../components/NewDMModal.jsx";
 import ProfileModal from "../components/ProfileModal.jsx";
-import { useNotifications } from "../hooks/useNotifications.js";
+import { useNotifications } from "../hooks/useNotification.js";
 
 const BACKEND_URL = "https://chat-app-api-y5fo.onrender.com";
 
