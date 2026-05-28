@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import SimplePeer from "simple-peer";
+import SimplePeer from "simple-peer/simplepeer.min.js";
 import { useSocket } from "../context/SocketContext.jsx";
 
 export const useWebRTC = ({ isInitiator, targetId, onCallEnded }) => {
