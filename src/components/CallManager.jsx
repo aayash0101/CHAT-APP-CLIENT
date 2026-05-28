@@ -4,32 +4,34 @@ import IncomingCallModal from "./IncomingCallModal.jsx";
 import CallModal from "./CallModal.jsx";
 
 export default function CallManager() {
-  const { incomingCall, activeCall, callStatus, acceptCall, rejectCall } = useCall();
-  const { user } = useAuth();
+    const { incomingCall, activeCall, callStatus, acceptCall, rejectCall } = useCall();
+    const { user } = useAuth();
 
-  // Show incoming call screen
-  if (incomingCall && callStatus !== "connected") {
-    return (
-      <IncomingCallModal
-        call={incomingCall}
-        onAccept={acceptCall}
-        onReject={rejectCall}
-      />
-    );
-  }
+    // Show incoming call screen
+    if (incomingCall && callStatus !== "connected") {
+        return (
+            <IncomingCallModal
+                call={incomingCall}
+                onAccept={acceptCall}
+                onReject={rejectCall}
+            />
+        );
+    }
+    console.log("activeCall:", activeCall);
+    console.log("targetId:", activeCall?.callerId || activeCall?.targetUserId);
+    console.log("isInitiator:", !activeCall?.callerId);
+    // Show active call screen
+    if (activeCall && (callStatus === "connected" || callStatus === "calling")) {
+        const targetId = activeCall.callerId || activeCall.targetUserId;
+        const isInitiator = !activeCall.callerId; // if callerId exists we are the callee
 
-  // Show active call screen
-  if (activeCall && (callStatus === "connected" || callStatus === "calling")) {
-    const targetId = activeCall.callerId || activeCall.targetUserId;
-    const isInitiator = !activeCall.callerId; // if callerId exists we are the callee
+        return (
+            <CallModal
+                targetId={targetId}
+                isInitiator={isInitiator}
+            />
+        );
+    }
 
-    return (
-      <CallModal
-        targetId={targetId}
-        isInitiator={isInitiator}
-      />
-    );
-  }
-
-  return null;
+    return null;
 }
