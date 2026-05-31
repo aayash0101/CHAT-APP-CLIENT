@@ -13,6 +13,10 @@ export const SocketProvider = ({ children }) => {
 
     const newSocket = io("https://chat-app-api-y5fo.onrender.com", {
       auth: { token },
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 2000,
+      timeout: 20000, 
     });
 
     newSocket.on("connect", () => {
