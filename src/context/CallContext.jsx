@@ -67,6 +67,7 @@ export const CallProvider = ({ children }) => {
 
     const acceptCall = () => {
         if (!socket || !incomingCall) return;
+          console.log("incomingCall data:", incomingCall); 
         setCallStatus("connected");
         setActiveCall(incomingCall);
         setIncomingCall(null);
