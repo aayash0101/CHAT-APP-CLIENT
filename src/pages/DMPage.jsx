@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useSocket } from "../context/SocketContext.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
+import { useCall } from "../context/CallContext.jsx";
 import api from "../api/axios.js";
 import DMSidebar from "../components/DMSidebar.jsx";
 import ChatWindow from "../components/ChatWindow.jsx";
@@ -13,245 +14,247 @@ import { useNotifications } from "../hooks/useNotification.js";
 const BACKEND_URL = "https://chat-app-api-y5fo.onrender.com";
 
 const getAvatarUrl = (avatar) => {
-    if (!avatar) return null;
-    if (avatar.startsWith("http")) return avatar;
-    return `${BACKEND_URL}${avatar}`;
+  if (!avatar) return null;
+  if (avatar.startsWith("http")) return avatar;
+  return `${BACKEND_URL}${avatar}`;
 };
 
 export default function DMPage() {
-    const socket = useSocket();
-    const { user } = useAuth();
-    const navigate = useNavigate();
-    const [searchParams, setSearchParams] = useSearchParams();
-    const { notify } = useNotifications();
+  const socket = useSocket();
+  const { user } = useAuth();
+  const { initiateCall } = useCall(); // ← import initiateCall
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { notify } = useNotifications();
 
-    const [dms, setDMs] = useState([]);
-    const [activeDM, setActiveDM] = useState(null);
-    const [messages, setMessages] = useState([]);
-    const [typingUsers, setTypingUsers] = useState([]);
-    const [showNewDM, setShowNewDM] = useState(false);
-    const [viewingUserId, setViewingUserId] = useState(null);
+  const [dms, setDMs] = useState([]);
+  const [activeDM, setActiveDM] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [typingUsers, setTypingUsers] = useState([]);
+  const [showNewDM, setShowNewDM] = useState(false);
+  const [viewingUserId, setViewingUserId] = useState(null);
 
-    const handleSelectUser = useCallback(async (targetUserId) => {
-        try {
-            const { data: dm } = await api.post("/dms", { targetUserId });
-            setDMs((prev) => {
-                const exists = prev.find((d) => d._id === dm._id);
-                return exists ? prev : [dm, ...prev];
-            });
-            // Select the DM directly here instead of calling handleDMSelect
-            // to avoid circular dependency
-            setActiveDM(dm);
-            setMessages([]);
-            setTypingUsers([]);
-            socket?.emit("room:join", dm._id);
-            const { data: msgs } = await api.get(`/dms/${dm._id}/messages`);
-            setMessages(msgs);
-        } catch (err) {
-            console.error("Failed to open DM:", err.response?.data?.message);
+  // Define handleDMSelect BEFORE it's used anywhere
+  const handleDMSelect = useCallback(async (dm) => {
+    if (activeDM) socket?.emit("room:leave", activeDM._id);
+    setActiveDM(dm);
+    setMessages([]);
+    setTypingUsers([]);
+    socket?.emit("room:join", dm._id);
+    try {
+      const { data } = await api.get(`/dms/${dm._id}/messages`);
+      setMessages(data);
+    } catch (err) {
+      console.error("Failed to fetch DM messages:", err);
+    }
+  }, [socket, activeDM]);
+
+  const handleSelectUser = useCallback(async (targetUserId) => {
+    try {
+      const { data: dm } = await api.post("/dms", { targetUserId });
+      setDMs((prev) => {
+        const exists = prev.find((d) => d._id === dm._id);
+        return exists ? prev : [dm, ...prev];
+      });
+      setActiveDM(dm);
+      setMessages([]);
+      setTypingUsers([]);
+      socket?.emit("room:join", dm._id);
+      const { data: msgs } = await api.get(`/dms/${dm._id}/messages`);
+      setMessages(msgs);
+    } catch (err) {
+      console.error("Failed to open DM:", err.response?.data?.message);
+    }
+  }, [socket]);
+
+  // Fetch all existing DMs on mount, then handle ?user= param
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const { data } = await api.get("/dms");
+        setDMs(data);
+        const targetUserId = searchParams.get("user");
+        if (targetUserId) {
+          await handleSelectUser(targetUserId);
+          setSearchParams({});
         }
-    }, [socket]);
-
-    // Fetch all existing DMs on mount, then handle ?user= param
-    useEffect(() => {
-        const init = async () => {
-            try {
-                const { data } = await api.get("/dms");
-                setDMs(data);
-
-                // Handle ?user= AFTER dms are loaded
-                const targetUserId = searchParams.get("user");
-                if (targetUserId) {
-                    await handleSelectUser(targetUserId);
-                    setSearchParams({});
-                }
-            } catch (err) {
-                console.error("Failed to fetch DMs:", err);
-            }
-        };
-        init();
-    }, []); // ← runs once on mount only
-
-    // Socket event listeners
-    useEffect(() => {
-        if (!socket) return;
-
-        socket.on("message:receive", (message) => {
-            setMessages((prev) => {
-                if (message.roomId === activeDM?._id) {
-                    return [...prev, message];
-                }
-                return prev;
-            });
-
-            setDMs((prev) => {
-                const updated = prev.find((d) => d._id === message.roomId);
-                if (!updated) return prev;
-                return [updated, ...prev.filter((d) => d._id !== message.roomId)];
-            });
-
-            // Fire notification if not your own message
-            if (message.sender._id !== user._id) {
-                notify({
-                    title: `New message from ${message.sender.username}`,
-                    body: message.content || "Sent an attachment",
-                    onClick: () => {
-                        // Find the DM and open it
-                        const dm = dms.find((d) => d._id === message.roomId);
-                        if (dm) handleDMSelect(dm);
-                    },
-                });
-            }
-        });
-        socket.on("typing:update", ({ username, isTyping }) => {
-            setTypingUsers((prev) => {
-                if (isTyping) return prev.includes(username) ? prev : [...prev, username];
-                return prev.filter((u) => u !== username);
-            });
-        });
-
-        socket.on("messages:read", ({ roomId, userId }) => {
-            setMessages((prev) =>
-                prev.map((msg) => {
-                    if (
-                        msg.room === roomId &&
-                        !msg.readBy?.includes(userId)
-                    ) {
-                        return { ...msg, readBy: [...(msg.readBy || []), userId] };
-                    }
-                    return msg;
-                })
-            );
-        });
-
-        return () => {
-            socket.off("message:receive");
-            socket.off("typing:update");
-            socket.off("messages:read");
-        };
-    }, [socket, activeDM]);
-
-
-
-    const handleDMSelect = useCallback(async (dm) => {
-        if (activeDM) socket?.emit("room:leave", activeDM._id);
-        setActiveDM(dm);
-        setMessages([]);
-        setTypingUsers([]);
-        socket?.emit("room:join", dm._id);
-        try {
-            const { data } = await api.get(`/dms/${dm._id}/messages`);
-            setMessages(data);
-        } catch (err) {
-            console.error("Failed to fetch DM messages:", err);
-        }
-    }, [socket, activeDM]);
-
-    const getOtherUser = (dm) => {
-        return dm?.participants?.find(
-            (p) => String(p._id) !== String(user._id)
-        );
+      } catch (err) {
+        console.error("Failed to fetch DMs:", err);
+      }
     };
+    init();
+  }, []);
 
-    const otherUser = activeDM ? getOtherUser(activeDM) : null;
+  // Socket event listeners
+  useEffect(() => {
+    if (!socket) return;
 
-    return (
-        <div className="flex h-screen bg-[#030712] overflow-hidden">
-            <DMSidebar
-                dms={dms}
-                activeDM={activeDM}
-                onDMSelect={handleDMSelect}
-                onNewDM={() => setShowNewDM(true)}
-            />
+    socket.on("message:receive", (message) => {
+      setMessages((prev) => {
+        if (message.roomId === activeDM?._id) {
+          return [...prev, message];
+        }
+        return prev;
+      });
 
-            <div className="flex flex-col flex-1 min-w-0">
-                {otherUser ? (
-                    <div className="px-5 py-3 bg-[#0d1117] border-b border-[#1f2937] flex items-center justify-between shrink-0">
-                        <button
-                            onClick={() => setViewingUserId(otherUser._id)}
-                            className="flex items-center gap-2.5 hover:opacity-80 transition-opacity"
-                        >
-                            <div className="relative">
-                                {getAvatarUrl(otherUser.avatar) ? (
-                                    <img src={getAvatarUrl(otherUser.avatar)} alt={otherUser.username} className="w-7 h-7 rounded-full object-cover" />
-                                ) : (
-                                    <div className="w-7 h-7 rounded-full bg-indigo-600 flex items-center justify-center text-white text-xs font-semibold">
-                                        {otherUser.username?.[0]?.toUpperCase()}
-                                    </div>
-                                )}
-                                {otherUser.isOnline && (
-                                    <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-emerald-500 rounded-full border-2 border-[#0d1117]" />
-                                )}
-                            </div>
-                            <div className="text-left">
-                                <p className="text-sm font-semibold text-gray-100">
-                                    {otherUser.displayName || otherUser.username}
-                                </p>
-                                <p className="text-xs text-gray-600">
-                                    {otherUser.isOnline ? "Online" : "Offline"}
-                                </p>
-                            </div>
-                        </button>
-                        <button
-                            onClick={() => initiateCall({
-                                targetUserId: String(otherUser._id), 
-                                roomId: activeDM._id,
-                                isGroup: false,
-                            })}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-gray-600 hover:text-emerald-400 hover:bg-emerald-950/30 transition-all text-xs font-medium"
-                            title="Start video call"
-                        >
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.069A1 1 0 0121 8.867v6.266a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" />
-                            </svg>
-                            Call
-                        </button>
-                        <button
-                            onClick={() => navigate("/chat")}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-gray-600 hover:text-gray-400 hover:bg-[#111827] transition-all text-xs font-medium"
-                        >
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                            </svg>
-                            Rooms
-                        </button>
-                    </div>
-                ) : (
-                    <div className="px-5 py-3 bg-[#0d1117] border-b border-[#1f2937] flex items-center justify-between shrink-0">
-                        <span className="text-sm font-semibold text-gray-100">Direct Messages</span>
-                        <button
-                            onClick={() => navigate("/chat")}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-gray-600 hover:text-gray-400 hover:bg-[#111827] transition-all text-xs font-medium"
-                        >
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                            </svg>
-                            Rooms
-                        </button>
-                    </div>
-                )}
+      setDMs((prev) => {
+        const updated = prev.find((d) => d._id === message.roomId);
+        if (!updated) return prev;
+        return [updated, ...prev.filter((d) => d._id !== message.roomId)];
+      });
 
-                <ChatWindow
-                    messages={messages}
-                    typingUsers={typingUsers}
-                    activeRoom={activeDM}
-                    onUserClick={(userId) => setViewingUserId(userId)}
-                />
-                <MessageInput activeRoom={activeDM} />
-            </div>
+      if (message.sender._id !== user._id) {
+        notify({
+          title: `New message from ${message.sender.username}`,
+          body: message.content || "Sent an attachment",
+          onClick: () => {
+            const dm = dms.find((d) => d._id === message.roomId);
+            if (dm) handleDMSelect(dm);
+          },
+        });
+      }
+    });
 
-            {showNewDM && (
-                <NewDMModal
-                    onClose={() => setShowNewDM(false)}
-                    onSelectUser={handleSelectUser}
-                />
-            )}
-            {viewingUserId && (
-                <ProfileModal
-                    userId={viewingUserId}
-                    onClose={() => setViewingUserId(null)}
-                />
-            )}
-        </div>
+    socket.on("typing:update", ({ username, isTyping }) => {
+      setTypingUsers((prev) => {
+        if (isTyping) return prev.includes(username) ? prev : [...prev, username];
+        return prev.filter((u) => u !== username);
+      });
+    });
+
+    socket.on("messages:read", ({ roomId, userId }) => {
+      setMessages((prev) =>
+        prev.map((msg) => {
+          if (msg.room === roomId && !msg.readBy?.includes(userId)) {
+            return { ...msg, readBy: [...(msg.readBy || []), userId] };
+          }
+          return msg;
+        })
+      );
+    });
+
+    return () => {
+      socket.off("message:receive");
+      socket.off("typing:update");
+      socket.off("messages:read");
+    };
+  }, [socket, activeDM]);
+
+  const getOtherUser = (dm) => {
+    return dm?.participants?.find(
+      (p) => String(p._id) !== String(user._id)
     );
+  };
+
+  const otherUser = activeDM ? getOtherUser(activeDM) : null;
+
+  return (
+    <div className="flex h-screen bg-[#030712] overflow-hidden">
+      <DMSidebar
+        dms={dms}
+        activeDM={activeDM}
+        onDMSelect={handleDMSelect}
+        onNewDM={() => setShowNewDM(true)}
+      />
+
+      <div className="flex flex-col flex-1 min-w-0">
+        {otherUser ? (
+          <div className="px-5 py-3 bg-[#0d1117] border-b border-[#1f2937] flex items-center justify-between shrink-0">
+            <button
+              onClick={() => setViewingUserId(otherUser._id)}
+              className="flex items-center gap-2.5 hover:opacity-80 transition-opacity"
+            >
+              <div className="relative">
+                {getAvatarUrl(otherUser.avatar) ? (
+                  <img
+                    src={getAvatarUrl(otherUser.avatar)}
+                    alt={otherUser.username}
+                    className="w-7 h-7 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-7 h-7 rounded-full bg-indigo-600 flex items-center justify-center text-white text-xs font-semibold">
+                    {otherUser.username?.[0]?.toUpperCase()}
+                  </div>
+                )}
+                {otherUser.isOnline && (
+                  <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-emerald-500 rounded-full border-2 border-[#0d1117]" />
+                )}
+              </div>
+              <div className="text-left">
+                <p className="text-sm font-semibold text-gray-100">
+                  {otherUser.displayName || otherUser.username}
+                </p>
+                <p className="text-xs text-gray-600">
+                  {otherUser.isOnline ? "Online" : "Offline"}
+                </p>
+              </div>
+            </button>
+
+            <div className="flex items-center gap-2">
+              {/* Call button */}
+              <button
+                onClick={() => initiateCall({
+                  targetUserId: String(otherUser._id),
+                  roomId: activeDM._id,
+                  isGroup: false,
+                })}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-gray-600 hover:text-emerald-400 hover:bg-emerald-950/30 transition-all text-xs font-medium"
+                title="Start video call"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.069A1 1 0 0121 8.867v6.266a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" />
+                </svg>
+                Call
+              </button>
+
+              {/* Back to rooms */}
+              <button
+                onClick={() => navigate("/chat")}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-gray-600 hover:text-gray-400 hover:bg-[#111827] transition-all text-xs font-medium"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+                Rooms
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="px-5 py-3 bg-[#0d1117] border-b border-[#1f2937] flex items-center justify-between shrink-0">
+            <span className="text-sm font-semibold text-gray-100">Direct Messages</span>
+            <button
+              onClick={() => navigate("/chat")}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-gray-600 hover:text-gray-400 hover:bg-[#111827] transition-all text-xs font-medium"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+              Rooms
+            </button>
+          </div>
+        )}
+
+        <ChatWindow
+          messages={messages}
+          typingUsers={typingUsers}
+          activeRoom={activeDM}
+          onUserClick={(userId) => setViewingUserId(userId)}
+        />
+        <MessageInput activeRoom={activeDM} />
+      </div>
+
+      {showNewDM && (
+        <NewDMModal
+          onClose={() => setShowNewDM(false)}
+          onSelectUser={handleSelectUser}
+        />
+      )}
+      {viewingUserId && (
+        <ProfileModal
+          userId={viewingUserId}
+          onClose={() => setViewingUserId(null)}
+        />
+      )}
+    </div>
+  );
 }
