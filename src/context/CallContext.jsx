@@ -17,9 +17,9 @@ export const CallProvider = ({ children }) => {
 
         // Someone is calling you
         socket.on("call:incoming", (data) => {
+            console.log("📲 Incoming call data:", JSON.stringify(data));
             setIncomingCall(data);
         });
-
         // Your call was accepted — set targetUserId so WebRTC knows who to connect to
         socket.on("call:accepted", (data) => {
             setCallStatus("connected");
@@ -66,8 +66,8 @@ export const CallProvider = ({ children }) => {
     };
 
     const acceptCall = () => {
+        console.log("✅ Accepting call, incomingCall:", JSON.stringify(incomingCall));
         if (!socket || !incomingCall) return;
-          console.log("incomingCall data:", incomingCall); 
         setCallStatus("connected");
         setActiveCall(incomingCall);
         setIncomingCall(null);
