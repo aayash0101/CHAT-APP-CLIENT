@@ -117,6 +117,14 @@ export const useWebRTC = ({ isInitiator, targetId, onCallEnded }) => {
           }
         };
 
+        pc.oniceconnectionstatechange = () => {
+          console.log("🧊 ICE connection state:", pc.iceConnectionState);
+        };
+
+        pc.onicegatheringstatechange = () => {
+          console.log("📡 ICE gathering state:", pc.iceGatheringState);
+        };
+
         if (isInitiator) {
           const offer = await pc.createOffer();
           await pc.setLocalDescription(offer);
