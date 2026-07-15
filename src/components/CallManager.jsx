@@ -15,7 +15,7 @@ export default function CallManager() {
     );
   }
 
-  if (activeCall && (callStatus === "connected" || callStatus === "calling")) {
+  if (activeCall && callStatus === "connected") {
     const isInitiator = !!activeCall.targetUserId;
     const targetId = isInitiator
       ? String(activeCall.targetUserId)
