@@ -118,7 +118,6 @@ export const useWebRTC = ({ isInitiator, targetId, onCallEnded }) => {
         };
 
         if (isInitiator) {
-          // Caller creates offer
           const offer = await pc.createOffer();
           await pc.setLocalDescription(offer);
           console.log("📤 Sending offer to:", targetId);
@@ -127,7 +126,6 @@ export const useWebRTC = ({ isInitiator, targetId, onCallEnded }) => {
             signal: { type: "offer", sdp: offer },
           });
         } else {
-          // Callee — process any buffered signals that arrived before pc was ready
           console.log("⏳ Processing", pendingSignalsRef.current.length, "buffered signals");
           for (const { signal, senderId } of pendingSignalsRef.current) {
             await processSignal(signal, senderId);
